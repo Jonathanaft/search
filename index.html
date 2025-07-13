@@ -1,0 +1,186 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Se-Arch Domains</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <style>
+    :root {
+      --primary: #6366f1;
+      --bg: #f3f4f6;
+      --card-bg: #ffffff;
+      --text: #111827;
+      --subtext: #6b7280;
+      --radius: 16px;
+    }
+    body {
+      font-family: 'Inter', sans-serif;
+      background: var(--bg);
+      padding: 4rem 1rem;
+      margin: 0;
+    }
+    .container {
+      max-width: 800px;
+      margin: auto;
+      background: var(--card-bg);
+      padding: 2.5rem;
+      border-radius: var(--radius);
+      box-shadow: 0 12px 24px rgba(0, 0, 0, 0.06);
+    }
+    h1 {
+      font-size: 2.75rem;
+      color: var(--text);
+      margin-bottom: 2rem;
+      text-align: center;
+    }
+    input {
+      padding: 14px;
+      font-size: 1.05rem;
+      width: 100%;
+      border-radius: var(--radius);
+      border: 1px solid #d1d5db;
+      margin-bottom: 1rem;
+      box-sizing: border-box;
+      transition: border 0.2s;
+    }
+    input:focus {
+      outline: none;
+      border-color: var(--primary);
+    }
+    button {
+      width: 100%;
+      padding: 14px;
+      font-size: 1.05rem;
+      font-weight: 600;
+      border: none;
+      border-radius: var(--radius);
+      background: var(--primary);
+      color: white;
+      cursor: pointer;
+      transition: background 0.2s ease;
+    }
+    button:hover {
+      background: #4f46e5;
+    }
+    .result {
+      background: var(--card-bg);
+      margin-top: 2rem;
+      padding: 1.75rem;
+      border-radius: var(--radius);
+      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.05);
+      transition: transform 0.2s, box-shadow 0.2s;
+    }
+    .result:hover {
+      transform: translateY(-4px);
+      box-shadow: 0 6px 24px rgba(0, 0, 0, 0.08);
+    }
+    .result a {
+      font-size: 1.35rem;
+      font-weight: 600;
+      color: var(--primary);
+      text-decoration: none;
+    }
+    .result a:hover {
+      text-decoration: underline;
+    }
+    .result p {
+      margin: 0.5rem 0;
+      color: var(--subtext);
+      line-height: 1.5;
+    }
+    .loading,
+    .error {
+      text-align: center;
+      font-size: 1.1rem;
+      color: var(--subtext);
+      margin-top: 2rem;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>🔎 Se-Arch</h1>
+    <input
+      type="text"
+      id="keyword"
+      placeholder="What do you wanna search?"
+      onkeydown="handleKey(event)"
+    />
+    <button onclick="startSearch()">Search Domains</button>
+    <div id="results"></div>
+  </div>
+
+  <script>
+    const domains = ['.com', '.org', '.net', '.io', '.co', '.info'];
+
+    function isFullDomain(input) {
+      // Basic check for domain format, you can enhance this regex if needed
+      return /^[a-z0-9-]+(\.[a-z]{2,})+$/i.test(input);
+    }
+
+    function handleKey(event) {
+      if (event.key === 'Enter') {
+        const input = event.target.value.trim().toLowerCase();
+        if (isFullDomain(input)) {
+          let url = input;
+          if (!input.startsWith('http')) {
+            url = 'https://' + input;
+          }
+          window.open(url, '_blank');
+        } else {
+          startSearch();
+        }
+      }
+    }
+
+    async function startSearch() {
+      const keyword = document.getElementById('keyword').value.trim().toLowerCase();
+      const resultDiv = document.getElementById('results');
+      resultDiv.innerHTML = "<div class='loading'>Searching...</div>";
+
+      if (!keyword) {
+        resultDiv.innerHTML = "<div class='error'>❗ Please enter a word.</div>";
+        return;
+      }
+
+      resultDiv.innerHTML = '';
+
+      for (const suffix of domains) {
+        const baseUrl = `https://${keyword}${suffix}`;
+        const robotsUrl = `${baseUrl}/robots.txt`;
+
+        try {
+          const robots = await fetch(robotsUrl);
+          const robotsText = await robots.text();
+
+          if (robotsText.includes('Disallow: /')) {
+            continue; // Skip disallowed sites
+          }
+
+          const page = await fetch(baseUrl);
+          const html = await page.text();
+
+          const doc = new DOMParser().parseFromString(html, 'text/html');
+          const title = doc.querySelector('title')?.innerText || 'No title';
+          const desc = doc.querySelector("meta[name='description']")?.content || 'No description';
+
+          const block = document.createElement('div');
+          block.className = 'result';
+          block.innerHTML = `
+            <a href="${baseUrl}" target="_blank" rel="noopener noreferrer">${title}</a>
+            <p><strong>${baseUrl}</strong></p>
+            <p>${desc}</p>
+          `;
+          resultDiv.appendChild(block);
+        } catch (err) {
+          // Ignore fetch errors or CORS blocks
+        }
+      }
+
+      if (resultDiv.innerHTML === '') {
+        resultDiv.innerHTML = "<div class='error'>❌ No accessible domains found or all blocked by CORS/robots.txt.</div>";
+      }
+    }
+  </script>
+</body>
+</html>
