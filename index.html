@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <title>Se-Arch Engine</title>
+  <title>Se-Arch Domains</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <style>
     :root {
@@ -46,13 +46,6 @@
     input:focus {
       outline: none;
       border-color: var(--primary);
-    }
-    label {
-      display: flex;
-      align-items: center;
-      font-size: 0.95rem;
-      color: var(--subtext);
-      margin-bottom: 1rem;
     }
     button {
       width: 100%;
@@ -113,10 +106,13 @@
       placeholder="What do you wanna search?"
       onkeydown="handleKey(event)"
     />
-    <label>
-      <input type="checkbox" id="directMode" style="margin-right: 0.5rem;" />
-      Go directly to full domain (like <code>example.com</code>)
-    </label>
+
+    <!-- ✅ Direct Domain Mode Checkbox -->
+    <div style="display: flex; align-items: center; gap: 0.5rem; margin-bottom: 1rem;">
+      <input type="checkbox" id="directMode" style="width: 16px; height: 16px; accent-color: var(--primary);" />
+      <label for="directMode" style="user-select: none; color: var(--text); font-size: 1rem;">Direct Domain Mode</label>
+    </div>
+
     <button onclick="startSearch()">Search Domains</button>
     <div id="results"></div>
   </div>
@@ -130,24 +126,15 @@
 
     function handleKey(event) {
       if (event.key === 'Enter') {
-        const input = event.target.value.trim().toLowerCase();
-        const direct = document.getElementById('directMode').checked;
-
-        if (direct && isFullDomain(input)) {
-          let url = input;
-          if (!url.startsWith('http')) {
-            url = 'https://' + url;
-          }
-          window.open(url, '_blank');
-        } else {
-          startSearch();
-        }
+        startSearch();
       }
     }
 
     async function startSearch() {
       const keyword = document.getElementById('keyword').value.trim().toLowerCase();
       const resultDiv = document.getElementById('results');
+      const directMode = document.getElementById('directMode').checked;
+
       resultDiv.innerHTML = "<div class='loading'>Searching...</div>";
 
       if (!keyword) {
@@ -155,24 +142,28 @@
         return;
       }
 
+      // ✅ If checkbox is on & input is a full domain, redirect
+      if (directMode && isFullDomain(keyword)) {
+        const url = keyword.startsWith('http') ? keyword : 'https://' + keyword;
+        window.open(url, '_blank');
+        resultDiv.innerHTML = '';
+        return;
+      }
+
       resultDiv.innerHTML = '';
 
       for (const suffix of domains) {
         const baseUrl = `https://${keyword}${suffix}`;
-        const robotsUrl = `https://api.allorigins.win/get?url=${encodeURIComponent(baseUrl + '/robots.txt')}`;
+        const robotsUrl = `${baseUrl}/robots.txt`;
 
         try {
-          const robotsRes = await fetch(robotsUrl);
-          const robotsJson = await robotsRes.json();
-          const robotsText = robotsJson.contents;
+          const robots = await fetch(`https://api.allorigins.win/raw?url=${encodeURIComponent(robotsUrl)}`);
+          const robotsText = await robots.text();
 
-          if (robotsText.includes('Disallow: /')) {
-            continue;
-          }
+          if (robotsText.includes('Disallow: /')) continue;
 
-          const pageRes = await fetch(`https://api.allorigins.win/get?url=${encodeURIComponent(baseUrl)}`);
-          const pageJson = await pageRes.json();
-          const html = pageJson.contents;
+          const page = await fetch(`https://api.allorigins.win/raw?url=${encodeURIComponent(baseUrl)}`);
+          const html = await page.text();
 
           const doc = new DOMParser().parseFromString(html, 'text/html');
           const title = doc.querySelector('title')?.innerText || 'No title';
@@ -187,12 +178,12 @@
           `;
           resultDiv.appendChild(block);
         } catch (err) {
-          // Ignore CORS or network errors
+          // Ignore fetch/CORS errors
         }
       }
 
       if (resultDiv.innerHTML === '') {
-        resultDiv.innerHTML = "<div class='error'>❌ No accessible domains found or all blocked by website owners, Search something else, we do the rest.</div>";
+        resultDiv.innerHTML = "<div class='error'>❌ No accessible domains found. Search something else and we do </div>";
       }
     }
   </script>
