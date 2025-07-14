@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <title>Se-Arch Domains</title>
+  <title>Se-Arch Engine</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <style>
     :root {
@@ -46,6 +46,13 @@
     input:focus {
       outline: none;
       border-color: var(--primary);
+    }
+    label {
+      display: flex;
+      align-items: center;
+      font-size: 0.95rem;
+      color: var(--subtext);
+      margin-bottom: 1rem;
     }
     button {
       width: 100%;
@@ -106,6 +113,10 @@
       placeholder="What do you wanna search?"
       onkeydown="handleKey(event)"
     />
+    <label>
+      <input type="checkbox" id="directMode" style="margin-right: 0.5rem;" />
+      Go directly to full domain (like <code>example.com</code>)
+    </label>
     <button onclick="startSearch()">Search Domains</button>
     <div id="results"></div>
   </div>
@@ -120,10 +131,12 @@
     function handleKey(event) {
       if (event.key === 'Enter') {
         const input = event.target.value.trim().toLowerCase();
-        if (isFullDomain(input)) {
+        const direct = document.getElementById('directMode').checked;
+
+        if (direct && isFullDomain(input)) {
           let url = input;
-          if (!input.startsWith('http')) {
-            url = 'https://' + input;
+          if (!url.startsWith('http')) {
+            url = 'https://' + url;
           }
           window.open(url, '_blank');
         } else {
@@ -146,21 +159,20 @@
 
       for (const suffix of domains) {
         const baseUrl = `https://${keyword}${suffix}`;
-        const robotsUrl = `${baseUrl}/robots.txt`;
+        const robotsUrl = `https://api.allorigins.win/get?url=${encodeURIComponent(baseUrl + '/robots.txt')}`;
 
         try {
-          const proxyRobotsUrl = `https://corsproxy.io/?${encodeURIComponent(robotsUrl)}`;
-          const proxyBaseUrl = `https://corsproxy.io/?${encodeURIComponent(baseUrl)}`;
-
-          const robots = await fetch(proxyRobotsUrl);
-          const robotsText = await robots.text();
+          const robotsRes = await fetch(robotsUrl);
+          const robotsJson = await robotsRes.json();
+          const robotsText = robotsJson.contents;
 
           if (robotsText.includes('Disallow: /')) {
             continue;
           }
 
-          const page = await fetch(proxyBaseUrl);
-          const html = await page.text();
+          const pageRes = await fetch(`https://api.allorigins.win/get?url=${encodeURIComponent(baseUrl)}`);
+          const pageJson = await pageRes.json();
+          const html = pageJson.contents;
 
           const doc = new DOMParser().parseFromString(html, 'text/html');
           const title = doc.querySelector('title')?.innerText || 'No title';
@@ -175,12 +187,12 @@
           `;
           resultDiv.appendChild(block);
         } catch (err) {
-          console.error(`Fetch failed for ${baseUrl}:`, err);
+          // Ignore CORS or network errors
         }
       }
 
       if (resultDiv.innerHTML === '') {
-        resultDiv.innerHTML = "<div class='error'>❌ No accessible domains found or all blocked by CORS/robots.txt.</div>";
+        resultDiv.innerHTML = "<div class='error'>❌ No accessible domains found or all blocked by website owners, Search something else, we do the rest.</div>";
       }
     }
   </script>
