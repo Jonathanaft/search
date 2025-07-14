@@ -114,7 +114,6 @@
     const domains = ['.com', '.org', '.net', '.io', '.co', '.info'];
 
     function isFullDomain(input) {
-      // Basic check for domain format, you can enhance this regex if needed
       return /^[a-z0-9-]+(\.[a-z]{2,})+$/i.test(input);
     }
 
@@ -150,14 +149,17 @@
         const robotsUrl = `${baseUrl}/robots.txt`;
 
         try {
-          const robots = await fetch(robotsUrl);
+          const proxyRobotsUrl = `https://corsproxy.io/?${encodeURIComponent(robotsUrl)}`;
+          const proxyBaseUrl = `https://corsproxy.io/?${encodeURIComponent(baseUrl)}`;
+
+          const robots = await fetch(proxyRobotsUrl);
           const robotsText = await robots.text();
 
           if (robotsText.includes('Disallow: /')) {
-            continue; // Skip disallowed sites
+            continue;
           }
 
-          const page = await fetch(baseUrl);
+          const page = await fetch(proxyBaseUrl);
           const html = await page.text();
 
           const doc = new DOMParser().parseFromString(html, 'text/html');
@@ -173,7 +175,7 @@
           `;
           resultDiv.appendChild(block);
         } catch (err) {
-          // Ignore fetch errors or CORS blocks
+          console.error(`Fetch failed for ${baseUrl}:`, err);
         }
       }
 
