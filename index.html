@@ -137,49 +137,77 @@
   <script>
     const domains = ['.com', '.org', '.net', '.io', '.co', '.info'];
 
-    // Shortcuts still active — but not displayed
+    // Use lowercase keys here so lookups are case-insensitive
     const keywordRedirects = {
-      "OS/boot": "https://jonathanaft.github.io/orchard/",
+      "os/boot": "https://jonathanaft.github.io/orchard/",
+      // add more shortcuts using lowercase keys
     };
 
-    function isFullDomain(input) {
-      return /^(https?:\/\/)?[a-z0-9-]+(\.[a-z0-9-]+)+$/i.test(input);
+    function normalize(str) {
+      return String(str || '').trim();
+    }
+
+    // Detect if input is a full domain or URL (with optional scheme and path).
+    function isFullDomainOrUrl(input) {
+      // Quick check: contains a dot and at least 2-letter TLD. This is intentionally permissive.
+      return /^(https?:\/\/)?([a-z0-9-]+\.)+[a-z]{2,}([\/:\?#].*)?$/i.test(input.trim());
     }
 
     function handleKey(event) {
-      if (event.key === 'Enter') startSearch();
+      if (event.key === 'Enter') {
+        // Keep the open call in the same call-stack as the user action to avoid popup blocking
+        startSearch();
+      }
     }
 
     async function startSearch() {
-      const raw = document.getElementById('keyword').value.trim();
-      const keyword = raw.toLowerCase();
+      const raw = normalize(document.getElementById('keyword').value);
+      if (!raw) {
+        document.getElementById('results').innerHTML = "<div class='error'>❗ Please enter a word.</div>";
+        return;
+      }
+
       const resultDiv = document.getElementById('results');
       const directMode = document.getElementById('directMode').checked;
-
       resultDiv.innerHTML = "<div class='loading'>Searching...</div>";
 
-      if (!keyword) {
-        resultDiv.innerHTML = "<div class='error'>❗ Please enter a word.</div>";
-        return;
+      // Prepare normalized forms
+      const rawLower = raw.toLowerCase();
+
+      // 1) DIRECT MODE: shortcuts (case-insensitive)
+      if (directMode) {
+        const redirect = keywordRedirects[rawLower];
+        if (redirect) {
+          // open immediately and stop further processing
+          window.open(redirect, "_blank");
+          resultDiv.innerHTML = '';
+          return;
+        }
+
+        // 2) DIRECT MODE: if user typed a full domain/URL, open it immediately
+        if (isFullDomainOrUrl(raw)) {
+          // ensure scheme
+          let url = raw;
+          if (!/^https?:\/\//i.test(url)) {
+            url = 'https://' + url;
+          }
+          try {
+            // open immediately (keeps it in same call-stack as click/enter)
+            window.open(url, "_blank");
+          } catch (e) {
+            console.warn('open failed', e);
+            resultDiv.innerHTML = "<div class='error'>Could not open URL directly. Try clicking the Search button instead.</div>";
+          }
+          resultDiv.innerHTML = '';
+          return;
+        }
       }
 
-      // Shortcut words
-      if (directMode && keywordRedirects[keyword]) {
-        window.open(keywordRedirects[keyword], "_blank");
-        resultDiv.innerHTML = '';
-        return;
-      }
-
-      if (directMode && isFullDomain(raw)) {
-        const url = raw.startsWith('http') ? raw : 'https://' + raw;
-        window.open(url, "_blank");
-        resultDiv.innerHTML = '';
-        return;
-      }
-
+      // Not direct-mode full-open — continue with domain suffix checks and show results
       resultDiv.innerHTML = '';
 
-      const checks = domains.map(suffix => checkDomain(keyword, suffix));
+      // Kick off checks (these are async, we show whatever returns)
+      const checks = domains.map(suffix => checkDomain(rawLower, suffix));
       const results = await Promise.all(checks);
 
       let found = false;
@@ -195,35 +223,49 @@
       }
     }
 
+    // checkDomain uses a public CORS proxy (allorigins) to avoid CORS issues when fetching other sites.
     async function checkDomain(keyword, suffix) {
       const baseUrl = `https://${keyword}${suffix}`;
       const robotsUrl = `${baseUrl}/robots.txt`;
 
       try {
+        // Try robots first — if it says disallow everything we'll skip showing the site.
         const robotsResp = await fetch(`https://api.allorigins.win/raw?url=${encodeURIComponent(robotsUrl)}`);
+        if (!robotsResp.ok) throw new Error('robots fetch failed');
         const robotsText = await robotsResp.text();
-
         if (robotsText.toLowerCase().includes("disallow: /")) return null;
 
+        // Fetch the homepage
         const pageResp = await fetch(`https://api.allorigins.win/raw?url=${encodeURIComponent(baseUrl)}`);
+        if (!pageResp.ok) throw new Error('page fetch failed');
         const html = await pageResp.text();
 
         const doc = new DOMParser().parseFromString(html, "text/html");
-        const title = doc.querySelector("title")?.innerText || "No title";
-        const desc = doc.querySelector("meta[name='description']")?.content || "No description";
+        const title = doc.querySelector("title")?.innerText?.trim() || "No title";
+        const desc = doc.querySelector("meta[name='description']")?.content?.trim() || "No description";
 
         const block = document.createElement("div");
         block.className = "result";
         block.innerHTML = `
-          <a href="${baseUrl}" target="_blank">${title}</a>
-          <p><strong>${baseUrl}</strong></p>
-          <p>${desc}</p>
+          <a href="${baseUrl}" target="_blank" rel="noopener noreferrer">${escapeHtml(title)}</a>
+          <p><strong>${escapeHtml(baseUrl)}</strong></p>
+          <p>${escapeHtml(desc)}</p>
         `;
         return block;
-
-      } catch {
+      } catch (err) {
+        // Any fetch/parsing failure -> treat as not available
         return null;
       }
+    }
+
+    // small helper to avoid injecting raw HTML from remote sites into our page
+    function escapeHtml(str) {
+      return String(str)
+        .replaceAll('&', '&amp;')
+        .replaceAll('<', '&lt;')
+        .replaceAll('>', '&gt;')
+        .replaceAll('"', '&quot;')
+        .replaceAll("'", '&#39;');
     }
   </script>
 </body>
