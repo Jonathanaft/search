@@ -95,11 +95,24 @@
       color: var(--subtext);
       margin-top: 2rem;
     }
+    .controls {
+      display: flex;
+      gap: 0.5rem;
+      align-items: center;
+      margin-bottom: 1rem;
+      justify-content: space-between;
+    }
+    .controls-left {
+      display:flex;
+      gap:0.5rem;
+      align-items:center;
+    }
   </style>
 </head>
 <body>
   <div class="container">
     <h1>🔎 Se-Arch</h1>
+
     <input
       type="text"
       id="keyword"
@@ -107,31 +120,48 @@
       onkeydown="handleKey(event)"
     />
 
-    <!-- ✅ Direct Domain Mode Checkbox -->
-    <div style="display: flex; align-items: center; gap: 0.5rem; margin-bottom: 1rem;">
-      <input type="checkbox" id="directMode" style="width: 16px; height: 16px; accent-color: var(--primary);" />
-      <label for="directMode" style="user-select: none; color: var(--text); font-size: 1rem;">Direct Domain Mode</label>
+    <div class="controls">
+      <div class="controls-left">
+        <input type="checkbox" id="directMode" style="width: 16px; height: 16px; accent-color: var(--primary);" />
+        <label for="directMode" style="user-select: none; color: var(--text); font-size: 1rem;">Direct Domain Mode</label>
+      </div>
+
+      <div style="width: 220px;">
+        <button onclick="startSearch()">Search Domains</button>
+      </div>
     </div>
 
-    <button onclick="startSearch()">Search Domains</button>
     <div id="results"></div>
   </div>
 
   <script>
     const domains = ['.com', '.org', '.net', '.io', '.co', '.info'];
 
+    // Shortcuts still active — but not displayed
+    const keywordRedirects = {
+      "youtube": "https://youtube.com",
+      "yt": "https://youtube.com",
+      "reddit": "https://reddit.com",
+      "gh": "https://github.com",
+      "github": "https://github.com",
+      "discord": "https://discord.com",
+      "gmail": "https://mail.google.com",
+      "google": "https://google.com",
+      "stack": "https://stackoverflow.com",
+      "so": "https://stackoverflow.com"
+    };
+
     function isFullDomain(input) {
-      return /^[a-z0-9-]+(\.[a-z]{2,})+$/i.test(input);
+      return /^(https?:\/\/)?[a-z0-9-]+(\.[a-z0-9-]+)+$/i.test(input);
     }
 
     function handleKey(event) {
-      if (event.key === 'Enter') {
-        startSearch();
-      }
+      if (event.key === 'Enter') startSearch();
     }
 
     async function startSearch() {
-      const keyword = document.getElementById('keyword').value.trim().toLowerCase();
+      const raw = document.getElementById('keyword').value.trim();
+      const keyword = raw.toLowerCase();
       const resultDiv = document.getElementById('results');
       const directMode = document.getElementById('directMode').checked;
 
@@ -142,48 +172,66 @@
         return;
       }
 
-      // ✅ If checkbox is on & input is a full domain, redirect
-      if (directMode && isFullDomain(keyword)) {
-        const url = keyword.startsWith('http') ? keyword : 'https://' + keyword;
-        window.open(url, '_blank');
+      // Shortcut words
+      if (directMode && keywordRedirects[keyword]) {
+        window.open(keywordRedirects[keyword], "_blank");
+        resultDiv.innerHTML = '';
+        return;
+      }
+
+      if (directMode && isFullDomain(raw)) {
+        const url = raw.startsWith('http') ? raw : 'https://' + raw;
+        window.open(url, "_blank");
         resultDiv.innerHTML = '';
         return;
       }
 
       resultDiv.innerHTML = '';
 
-      for (const suffix of domains) {
-        const baseUrl = `https://${keyword}${suffix}`;
-        const robotsUrl = `${baseUrl}/robots.txt`;
+      const checks = domains.map(suffix => checkDomain(keyword, suffix));
+      const results = await Promise.all(checks);
 
-        try {
-          const robots = await fetch(`https://api.allorigins.win/raw?url=${encodeURIComponent(robotsUrl)}`);
-          const robotsText = await robots.text();
-
-          if (robotsText.includes('Disallow: /')) continue;
-
-          const page = await fetch(`https://api.allorigins.win/raw?url=${encodeURIComponent(baseUrl)}`);
-          const html = await page.text();
-
-          const doc = new DOMParser().parseFromString(html, 'text/html');
-          const title = doc.querySelector('title')?.innerText || 'No title';
-          const desc = doc.querySelector("meta[name='description']")?.content || 'No description';
-
-          const block = document.createElement('div');
-          block.className = 'result';
-          block.innerHTML = `
-            <a href="${baseUrl}" target="_blank" rel="noopener noreferrer">${title}</a>
-            <p><strong>${baseUrl}</strong></p>
-            <p>${desc}</p>
-          `;
+      let found = false;
+      for (const block of results) {
+        if (block) {
           resultDiv.appendChild(block);
-        } catch (err) {
-          // Ignore fetch/CORS errors
+          found = true;
         }
       }
 
-      if (resultDiv.innerHTML === '') {
-        resultDiv.innerHTML = "<div class='error'>❌ No accessible domains found. Search something else and we do </div>";
+      if (!found) {
+        resultDiv.innerHTML = "<div class='error'>❌ No accessible domains found.</div>";
+      }
+    }
+
+    async function checkDomain(keyword, suffix) {
+      const baseUrl = `https://${keyword}${suffix}`;
+      const robotsUrl = `${baseUrl}/robots.txt`;
+
+      try {
+        const robotsResp = await fetch(`https://api.allorigins.win/raw?url=${encodeURIComponent(robotsUrl)}`);
+        const robotsText = await robotsResp.text();
+
+        if (robotsText.toLowerCase().includes("disallow: /")) return null;
+
+        const pageResp = await fetch(`https://api.allorigins.win/raw?url=${encodeURIComponent(baseUrl)}`);
+        const html = await pageResp.text();
+
+        const doc = new DOMParser().parseFromString(html, "text/html");
+        const title = doc.querySelector("title")?.innerText || "No title";
+        const desc = doc.querySelector("meta[name='description']")?.content || "No description";
+
+        const block = document.createElement("div");
+        block.className = "result";
+        block.innerHTML = `
+          <a href="${baseUrl}" target="_blank">${title}</a>
+          <p><strong>${baseUrl}</strong></p>
+          <p>${desc}</p>
+        `;
+        return block;
+
+      } catch {
+        return null;
       }
     }
   </script>
