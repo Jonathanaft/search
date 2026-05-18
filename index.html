@@ -1,1 +1,326 @@
-Se-Arch is down.
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Se-Arch Ecosystem</title>
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=Inter:wght@300;400;500;600;700&family=Space+Grotesk:wght@400;500;700&display=swap" rel="stylesheet">
+
+  <style>
+    * { margin:0; padding:0; box-sizing:border-box; }
+
+    body {
+      background:#000;
+      color:#fff;
+      font-family:Inter, sans-serif;
+    }
+
+    .container { width:min(1200px,92%); margin:auto; }
+
+    .heading-font { font-family:'Space Grotesk',sans-serif; }
+    .mono-font { font-family:'IBM Plex Mono',monospace; }
+
+    .hero { padding:90px 0 50px; }
+
+    .tag {
+      display:inline-block;
+      padding:10px 14px;
+      border:1px solid rgba(162,69,255,0.4);
+      background:rgba(162,69,255,0.1);
+      border-radius:999px;
+      font-size:12px;
+      letter-spacing:.15em;
+      margin-bottom:18px;
+    }
+
+    .hero-title { font-size:3rem; margin-bottom:10px; }
+    .hero-text { color:rgba(255,255,255,0.7); line-height:1.6; max-width:650px; }
+
+    .section { padding:70px 0; border-top:1px solid rgba(255,255,255,0.08); }
+
+    .section-title span { color:#a245ff; font-size:12px; letter-spacing:.3em; }
+    .section-title h2 { font-size:2.2rem; margin-top:10px; }
+
+    .software-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(260px,1fr)); gap:20px; }
+
+    .software-card {
+      padding:20px;
+      border-radius:18px;
+      background:rgba(255,255,255,0.04);
+      border:1px solid rgba(255,255,255,0.1);
+      cursor:pointer;
+      transition:.25s;
+    }
+
+    .software-card:hover { transform:translateY(-3px); }
+
+    .font-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(200px,1fr)); gap:15px; }
+
+    .font-card {
+      padding:15px;
+      border-radius:14px;
+      background:rgba(255,255,255,0.03);
+      border:1px solid rgba(255,255,255,0.08);
+      cursor:pointer;
+    }
+
+    canvas {
+      background:white;
+      border-radius:12px;
+      width:100%;
+      height:100%;
+    }
+
+    .app-window {
+      position:fixed;
+      inset:25px;
+      background:#0b0b0b;
+      border:1px solid rgba(162,69,255,0.4);
+      border-radius:18px;
+      display:none;
+      flex-direction:column;
+      overflow:hidden;
+      z-index:999;
+    }
+
+    .app-header {
+      padding:10px 14px;
+      background:#111;
+      display:flex;
+      justify-content:space-between;
+      align-items:center;
+    }
+
+    .close-btn { cursor:pointer; color:#a245ff; }
+
+    .toolbar {
+      padding:10px;
+      display:flex;
+      gap:10px;
+      background:#0f0f0f;
+      flex-wrap:wrap;
+    }
+
+    button {
+      padding:6px 10px;
+      border:none;
+      border-radius:8px;
+      cursor:pointer;
+      background:#a245ff;
+      color:white;
+    }
+  </style>
+</head>
+<body>
+
+<section class="hero container">
+  <div class="tag mono-font">Se-Arch Ecosystem</div>
+  <h1 class="hero-title heading-font">Search the Ecosystem with Se-Arch</h1>
+  <p class="hero-text">A unified space for layout design, drawing tools, and font exploration.</p>
+</section>
+
+<section class="section container">
+  <div class="section-title"><span>Tools</span><h2 class="heading-font">Software</h2></div>
+
+  <div class="software-grid">
+    <div class="software-card" onclick="openLayout()">Se-Arch Layout</div>
+    <div class="software-card" onclick="openDraw()">Se-Arch Draw</div>
+  </div>
+</section>
+
+<section class="section container">
+  <div class="section-title"><span>Fonts</span><h2 class="heading-font">Collection</h2></div>
+
+  <div class="font-grid">
+    <div class="font-card" onclick="openFont('Inter')">Inter</div>
+    <div class="font-card" onclick="openFont('Space Grotesk')">Space Grotesk</div>
+    <div class="font-card" onclick="openFont('IBM Plex Mono')">IBM Plex Mono</div>
+    <div class="font-card" onclick="openFont('Poppins')">Poppins</div>
+    <div class="font-card" onclick="openFont('Roboto Flex')">Roboto Flex</div>
+    <div class="font-card" onclick="openFont('JetBrains Mono')">JetBrains Mono</div>
+  </div>
+</section>
+
+<div class="app-window" id="layoutApp">
+  <div class="app-header">
+    <div>Se-Arch Layout</div>
+    <div class="close-btn" onclick="closeApps()">Close</div>
+  </div>
+
+  <div class="toolbar">
+    <button onclick="setTool('rect')">Rectangle</button>
+    <button onclick="setTool('circle')">Circle</button>
+    <button onclick="setTool('line')">Line</button>
+    <button onclick="clearShapes()">Clear</button>
+  </div>
+
+  <canvas id="layoutCanvas"></canvas>
+</div>
+
+<div class="app-window" id="drawApp">
+  <div class="app-header">
+    <div>Se-Arch Draw</div>
+    <div class="close-btn" onclick="closeApps()">Close</div>
+  </div>
+
+  <div class="toolbar">
+    <button onclick="startDraw()">Draw</button>
+    <button onclick="stopDraw()">Stop</button>
+    <button onclick="clearDraw()">Clear</button>
+  </div>
+
+  <canvas id="drawCanvas"></canvas>
+</div>
+
+<script>
+let tool='rect';
+let drawing=false;
+let startX,startY;
+let shapes=[];
+let ctxLayout, ctxDraw;
+let drawActive=false;
+
+function openLayout(){
+  document.getElementById('layoutApp').style.display='flex';
+  initLayout();
+}
+
+function openDraw(){
+  document.getElementById('drawApp').style.display='flex';
+  initDraw();
+}
+
+function closeApps(){
+  document.getElementById('layoutApp').style.display='none';
+  document.getElementById('drawApp').style.display='none';
+}
+
+function setTool(t){ tool=t; }
+
+function initLayout(){
+  const c=document.getElementById('layoutCanvas');
+  ctxLayout=c.getContext('2d');
+  resize(c);
+
+  c.onmousedown=(e)=>{drawing=true;startX=e.offsetX;startY=e.offsetY;};
+  c.onmouseup=(e)=>{
+    drawing=false;
+    shapes.push({tool,startX,startY,x:e.offsetX,y:e.offsetY});
+    renderLayout();
+  };
+  c.onmousemove=(e)=>{
+    if(!drawing)return;
+    renderLayout();
+    previewLayout(e);
+  };
+  renderLayout();
+}
+
+function previewLayout(e){
+  const x=e.offsetX,y=e.offsetY;
+  ctxLayout.strokeStyle='#a245ff';
+  ctxLayout.fillStyle='rgba(162,69,255,0.2)';
+
+  if(tool==='rect'){
+    ctxLayout.fillRect(startX,startY,x-startX,y-startY);
+    ctxLayout.strokeRect(startX,startY,x-startX,y-startY);
+  }
+  if(tool==='circle'){
+    let r=Math.hypot(x-startX,y-startY);
+    ctxLayout.beginPath();
+    ctxLayout.arc(startX,startY,r,0,Math.PI*2);
+    ctxLayout.fill(); ctxLayout.stroke();
+  }
+  if(tool==='line'){
+    ctxLayout.beginPath();
+    ctxLayout.moveTo(startX,startY);
+    ctxLayout.lineTo(x,y);
+    ctxLayout.stroke();
+  }
+}
+
+function renderLayout(){
+  const c=document.getElementById('layoutCanvas');
+  ctxLayout.clearRect(0,0,c.width,c.height);
+
+  shapes.forEach(s=>{
+    ctxLayout.strokeStyle='#a245ff';
+    ctxLayout.fillStyle='rgba(162,69,255,0.2)';
+
+    if(s.tool==='rect'){
+      ctxLayout.fillRect(s.startX,s.startY,s.x-s.startX,s.y-s.startY);
+      ctxLayout.strokeRect(s.startX,s.startY,s.x-s.startX,s.y-s.startY);
+    }
+    if(s.tool==='circle'){
+      let r=Math.hypot(s.x-s.startX,s.y-s.startY);
+      ctxLayout.beginPath();
+      ctxLayout.arc(s.startX,s.startY,r,0,Math.PI*2);
+      ctxLayout.fill(); ctxLayout.stroke();
+    }
+    if(s.tool==='line'){
+      ctxLayout.beginPath();
+      ctxLayout.moveTo(s.startX,s.startY);
+      ctxLayout.lineTo(s.x,s.y);
+      ctxLayout.stroke();
+    }
+  });
+}
+
+function clearShapes(){shapes=[];renderLayout();}
+
+function initDraw(){
+  const c=document.getElementById('drawCanvas');
+  ctxDraw=c.getContext('2d');
+  resize(c);
+
+  let lastX=0,lastY=0;
+
+  c.onmousedown=(e)=>{
+    drawActive=true;
+    lastX=e.offsetX;
+    lastY=e.offsetY;
+  };
+
+  c.onmouseup=()=>drawActive=false;
+
+  c.onmousemove=(e)=>{
+    if(!drawActive)return;
+
+    ctxDraw.strokeStyle='#a245ff';
+    ctxDraw.lineWidth=3;
+    ctxDraw.lineCap='round';
+
+    ctxDraw.beginPath();
+    ctxDraw.moveTo(lastX,lastY);
+    ctxDraw.lineTo(e.offsetX,e.offsetY);
+    ctxDraw.stroke();
+
+    lastX=e.offsetX;
+    lastY=e.offsetY;
+  };
+}
+
+function startDraw(){drawActive=true;}
+function stopDraw(){drawActive=false;}
+
+function clearDraw(){
+  const c=document.getElementById('drawCanvas');
+  ctxDraw.clearRect(0,0,c.width,c.height);
+}
+
+function resize(c){
+  c.width=window.innerWidth;
+  c.height=window.innerHeight-120;
+}
+
+function openFont(name){
+  const slug=name.toLowerCase().replace(/ /g,'-');
+  window.open(`https://fonts.google.com/specimen/${slug}`,'_blank');
+}
+</script>
+
+</body>
+</html>
